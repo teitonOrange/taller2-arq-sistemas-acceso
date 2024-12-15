@@ -1,27 +1,45 @@
-import { Injectable, UnauthorizedException } from '@nestjs/common';
-import { JwtService } from '@nestjs/jwt';
+import { Injectable } from '@nestjs/common';
 import * as bcrypt from 'bcrypt';
+import * as jwt from 'jsonwebtoken';
 import { PrismaService } from '../prisma/prisma.service';
+import { access } from 'fs';
 
 @Injectable()
 export class AuthService {
-  constructor(
-    private readonly prisma: PrismaService,
-    private readonly jwtService: JwtService,
-  ) {}
+  constructor(private readonly prisma: PrismaService) {}
 
-  async validateUser(rut: string, password: string) {
-    const user = await this.prisma.user.findUnique({ where: { rut } });
-    if (user && (await bcrypt.compare(password, user.hashedPassword))) {
-      return { id: user.id, username: user.name };
+  async login(credentials: { email: string; password: string }) {
+    // console.log(bcrypt.hashSync(credentials.password, 10));
+    const user = await this.prisma.user.findUnique({
+      where: { email: credentials.email },
+      include: { role: true },
+    });
+
+    if (!user) {
+      throw new Error('Usuario no encontrado');
     }
-    throw new UnauthorizedException('Credenciales incorrectas');
+
+    const isPasswordValid = await bcrypt.compare(credentials.password, user.hashedPassword);
+    if (!isPasswordValid) {
+
+      throw new Error('Credenciales incorrectas');
+    }
+
+    const payload = { userId: user.id, roles: user.role.name };
+    const token = jwt.sign(payload, process.env.JWT_SECRET, { expiresIn: '1h' }); 
+
+
+
+
+    await this.prisma.user.update({
+      where: { id: user.id },
+      data: { token: token },
+    });
+
+    return { accessToken: token };
+
   }
 
-  async login(user: any) {
-    const payload = { username: user.username, sub: user.id };
-    return {
-      access_token: this.jwtService.sign(payload),
-    };
-  }
+ 
+  
 }
