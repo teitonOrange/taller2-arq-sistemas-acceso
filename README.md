@@ -25,6 +25,7 @@ Primero, clona el repositorio y ejecuta el siguiente comando dentro del director
     $ npm run build
     $ npx prisma generate
     $ npx prisma migrate dev --name "1ra migracion"
+    $ run npm db:seed
 
 ## Compilación y Ejecución
 
